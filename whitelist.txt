@@ -1,0 +1,11 @@
+utexas.edu
+cmu.edu
+yale.edu
+harvard.edu
+princeton.edu
+vanderbilt.edu
+stanford.edu
+mit.edu
+collegeboard.org
+mycoalition.org
+coalitionforcollege.org
