@@ -12,9 +12,9 @@ class Unsubscriber:
     
     def login_to_inbox (self):
         self.browser.get ("https://login.yahoo.com")
-        self.browser.find_element (By.ID, "login-username").send_keys ("email")
+        self.browser.find_element (By.ID, "login-username").send_keys ("email") #replace with your email
         self.browser.find_element (By.ID, "login-signin").click();
-        self.browser.find_element (By.ID, "login-passwd").send_keys ("password")
+        self.browser.find_element (By.ID, "login-passwd").send_keys ("password") #replace with your password
         self.browser.find_element (By.ID, "login-signin").click();
         self.browser.find_element (By.ID, "ybarMailLink").click();
 
@@ -125,7 +125,9 @@ class Unsubscriber:
         #print ("refresh: " + str(len(emails)))
         return [email for email in emails if email not in visited]
 
-    def unsubscribe (self, depth):
+    # unsubscribe from and delete college emails
+    # adds the domain to the blacklist so won't be visited again
+    def unsubscribe_all (self, depth):
         with webdriver.Firefox() as browser:
             self.browser = browser
             browser.execute_script(
@@ -187,6 +189,8 @@ class Unsubscriber:
 
             blacklist_file.close()
 
+    # delete all college emails without unsubscribing, regardless of if they are in the blacklist
+    # you can call this after unsubscribing to delete any repeat emails from the same domain
     def delete (self, depth):
         deleted = 0
         histo = {}
@@ -207,8 +211,6 @@ class Unsubscriber:
 
             with open ("whitelist.txt", "r") as whitelist_file:
                 whitelist = set(whitelist_file.readlines())
-            blacklist_file = open ("blacklist.txt", "r+")
-            blacklist = set(blacklist_file.readlines())
 
             emails = []
             emails_visisted = []
@@ -237,11 +239,10 @@ class Unsubscriber:
                         email_address = email.find_element (By.XPATH, ".//span[@class='o_h J_x em_N G_e']").get_attribute ("title")
                         email_domain = email_address.split("@")[1]
                     except Exception:
-                        print ("skip")
                         continue
 
                     #check if email is from a college and not in whitelist / blacklist
-                    if self.is_college_email (email) and not self.in_lists (email_address, whitelist, blacklist):
+                    if self.is_college_email (email) and not self.in_lists (email_address, whitelist, []):
                         actions.move_to_element (email).perform()
                         trash = email.find_element (By.XPATH, ".//div[@class='p_R D_F ek_EZ ab_C H_6D6F']")
                         actions.move_to_element (trash).click().perform()
@@ -268,73 +269,7 @@ class Unsubscriber:
                     print (f"Most emails from: {most_emails_from} - {histo[most_emails_from]}")
                 print ("----------------")
 
-    def count (self, depth):
-        deleted = 0
-        histo = {}
-
-        options = Options()
-        options.headless = True
-
-        with webdriver.Firefox(options=options) as browser:
-            print ("starting count")
-
-            self.browser = browser
-            actions = ActionChains (browser)
-            browser.execute_script(
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            browser.implicitly_wait(self.max_wait)
-
-            self.login_to_inbox ()
-
-            browser.get ("https://mail.yahoo.com/d/folders/folders=4&sortOrder=date_asc")
-            
-            emails = []
-            emails_visisted = []
-            emails_scanned = 0
-
-            while emails_scanned < depth:
-                attempts = 0
-                while attempts < 4 and len(emails) == 0:
-                    sleep (1)
-                    emails = self.refresh_emails (emails_visisted)
-                    attempts = attempts + 1
-
-                if len(emails) == 0:
-                    break
-
-                while len(emails) > 0:     
-                    email = emails.pop (0) #get next email         
-                    emails_visisted.append (email) #update emails visited
-                    emails_scanned = emails_scanned + 1
-                    if emails_scanned > 200:
-                        emails_visisted.pop (0)
-                    
-                    print (emails_scanned, end="\r")
-
-                    #ignore ads
-                    try:
-                        browser.execute_script ("arguments[0].scrollIntoView(true);", email)
-                        email_address = email.find_element (By.XPATH, ".//span[@class='o_h J_x em_N G_e']").get_attribute ("title")
-                        email_domain = email_address.split("@")[1]
-                    except Exception:
-                        print ("skip", end="\r")
-                        continue
-
-                    if email_domain in histo:
-                        histo[email_domain] = histo[email_domain] + 1
-                    else:
-                        histo[email_domain] = 1
-
-                        #print (f"email from {email_address} deleted")
-                
-            print ("----------------")
-            histo = dict(sorted(histo.items(), key=lambda item: item[1]))
-            for item in histo.items():
-                print (f"{item[0]} : {item[1]}")
-
-            print (f"{emails_scanned} emails scanned")
-            print ("----------------")
 
 unsub = Unsubscriber ()
-unsub.delete (5630)
+unsub.unsubscribe_all (5630)
 
